@@ -1,0 +1,4 @@
+module ObjcBridge
+plugin declarative_qmlobjcbridgeplugin
+classname QTestObjectPlugin
+typeinfo plugins.qmltypes

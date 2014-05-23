@@ -15,7 +15,6 @@ void QtWindowControllerItem::setWindow(QWindow *window)
 {
     qDebug() << "QtWindowControllerItem::setWindow" << window;
     m_controlledWindow = window;
-    m_controlledWindow->setVisibility(QWindow::Windowed);
 }
 
 void QtWindowControllerItem::componentComplete()
@@ -35,10 +34,8 @@ void QtWindowControllerItem::onWindowChanged(QQuickWindow* window)
     if (!m_controlledWindow)
         return;
 
-    //QRect geometry = QRect(x(), y(), width(), height());
     qDebug() << "QtWindowControllerItem::setParent" << window;
     m_controlledWindow->setParent(window);
-    m_controlledWindow->setVisible(true);
 }
 
 void QtWindowControllerItem::onVisibleChanged()
