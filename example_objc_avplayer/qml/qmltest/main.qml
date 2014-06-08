@@ -12,6 +12,8 @@ Rectangle {
 
     NSSlider {
         id : rateSlider
+        x : 10
+        y : 10
         width : 400
         height : 40
 
@@ -28,5 +30,11 @@ Rectangle {
     AVPlayerView {
         player : thePlayer
         showsFullScreenToggleButton : true
+
+        x : 50
+        y : 50
+
+        width : 300
+        height : 250
     }
 }
