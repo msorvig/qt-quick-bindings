@@ -22,7 +22,7 @@ Change-Id: I93466550adb91344e7b3b384744237dbf3e65b0e
  8 files changed, 78 insertions(+), 17 deletions(-)
 
 diff --git a/src/qml/qml/qqml.h b/src/qml/qml/qqml.h
-index 633953c..81c9aca 100644
+index 633953c..54b43bb 100644
 --- a/src/qml/qml/qqml.h
 +++ b/src/qml/qml/qqml.h
 @@ -49,6 +49,7 @@
@@ -97,7 +97,7 @@ index 633953c..81c9aca 100644
  
 +template<typename T>
 +int qmlRegisterCustomMetaObjectType(const char *uri, int versionMajor, int versionMinor, const char *qmlName,
-+                                    void (*createFn)(void *), void *context, const QMetaObject *metaObject)
++                                    void (*createFn)(void *, void *), void *context, const QMetaObject *metaObject)
 +{
 +    QML_GETTYPENAMES2
 +
