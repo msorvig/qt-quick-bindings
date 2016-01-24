@@ -1,7 +1,7 @@
 #ifndef QMLBINDINGS_H
 #define QMLBINDINGS_H
 
-#if defined(__cplusplus)
+#if defined(__cplusplus) && defined (QT_BINDINGS_HAS_QVARIANT)
 #include <QtCore/qvariant.h>
 #endif
 
@@ -117,7 +117,7 @@ QtValue *qtValueFromInt(int value);
 // C++ Type conversion. Bindings that can compile C++ can access QVariant directly.
 //
 
-#if defined(__cplusplus)
+#if defined(__cplusplus) && defined (QT_BINDINGS_HAS_QVARIANT)
 QVariant qtValueToVariant(QtValue *value);
 QtValue *qtValueFromVariant(const QVariant &variant);
 

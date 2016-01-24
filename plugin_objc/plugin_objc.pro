@@ -26,6 +26,8 @@ OBJECTIVE_SOURCES += ../src/introspection_objc.mm
 
 SOURCES += plugin.cpp
 
+DEFINES += QT_BINDINGS_HAS_QVARIANT
+
 osx {
     # link against frameworks to register their views
     LIBS +=  -framework ApplicationServices -framework WebKit -framework MapKit -framework AVKit
