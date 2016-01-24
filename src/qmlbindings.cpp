@@ -278,11 +278,12 @@ QtValue *qtReadProperty(QtQmlBindings *bindings, void *object, const char *prope
 
 void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray name, QVariant value)
 {
-    // The dual object identity switcharoo
+    // The dual object identity setup
     //
     // Objects have two identities; the QObject on the Qt side and
-    // the bound object on the bindings side. Consider the following
-    // example: (Objective-C bindings)
+    // the bound object type on the bindings side.
+    //
+    // Consider the following example: (Objective-C bindings)
     //
     // AVPlayer {
     //    id : thePlayer
@@ -338,18 +339,17 @@ int qtMain(int argc, char**argv, const char *mainQmlFilePath)
     QGuiApplication app(argc, argv);
     QQuickView quickView;
     QObject::connect(quickView.engine(), SIGNAL(quit()), &quickView, SLOT(close()));
-    quickView.setSource(QUrl::fromLocalFile(mainQmlFilePath));
+    quickView.setSource(QUrl::fromLocalFile(QString::fromUtf8(mainQmlFilePath)));
     quickView.show();
     return app.exec();
 }
 
 int qtMainSimple(const char *mainQmlFilePath)
 {
-    int argc = 0;
-    char *argv = "";
+    static int argc = 0;
+    static char *argv = "";
     return qtMain(argc, &argv, mainQmlFilePath);
 }
-
 
 int qtValueType(QtValue *value)
 {
@@ -385,13 +385,53 @@ QtValue *qtValueFromInt(int value)
     return newValue;
 }
 
-QByteArray utf8Str;
 const char *qtValueString(QtValue *value)
 {
     QString str = value->variant.toString();
+    static QByteArray utf8Str; // ### reentrancy?
     utf8Str = str.toUtf8();
     return utf8Str.constData();
 }
+
+QtValue *qtValueStringFromUtf8(QtValue *value, char *buffer, int bufferLength)
+{
+    QtValue *newValue = new QtValue;
+    newValue->variant = QVariant::fromValue(QString::fromUtf8(buffer, bufferLength));
+    return newValue;
+}
+
+int qtValueStringCopyToUtf8(QtValue *value, char *buffer, int bufferLength)
+{
+    // Convert to utf-8 and copy to output buffer, possibly
+    // truncating the string if the buffer is too small.
+    QByteArray utf8 = value->variant.toString().toUtf8();
+    int copyLength = qMin(utf8.length(), bufferLength - 1);
+    qstrncpy(buffer, utf8.constData(), copyLength);
+
+    // Terminate with 0 byte, either at string end or output buffer end
+    buffer[copyLength] = 0;
+
+    // Return the number of bytes copied.
+    return copyLength;
+}
+
+/*
+int qtValueStringCopyToUtf16(QtValue *value, char *buffer, int bufferLength)
+{
+    // Convert to utf-16 and copy to output buffer, possibly
+    // truncating the string if the buffer is too small.
+    QString string = value->variant.toString();
+    const ushort *utf16 = string.utf16();
+    int copyLength = qMin(, bufferLength - 1);
+    qstrncpy(buffer, utf16, copyLength);
+
+    // Terminate with 0 byte, either at string end or output buffer end
+    buffer[copyLength] = 0;
+
+    // Return the number of bytes copied.
+    return copyLength;
+}
+*/
 
 int qtValueStringLength(QtValue *value)
 {
@@ -411,5 +451,4 @@ QtValue *qtValueFromVariant(const QVariant &variant)
     newValue->variant = variant;
     return newValue;
 }
-
 
