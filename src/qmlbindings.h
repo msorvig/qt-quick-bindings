@@ -23,14 +23,14 @@ typedef struct QtValuePointer_t QtValuePointer;
 //
 
 // Called by Qt to create an object
-typedef void *(*CreateObjectFn)(const char *className);
+typedef void *(*CreateObjectFn)(void *context, const char *className);
 // Called by Qt to destroy an object
-typedef void (*DestroyObjectFn)(void *object);
+typedef void (*DestroyObjectFn)(void *context, void *object);
 // Called by Qt to read a property.
-typedef QtValue *(*ReadPropertyFn)(void *object, const char *propertyName);
+typedef QtValue *(*ReadPropertyFn)(void *context, void *object, const char *propertyName);
 // typedef void (*ReadPropertyFn)(void *object, const char *propertyName, QtValuePointer *valuePointer);
 // Called by Qt to write a property.
-typedef void (*WritePropertyFn)(void *object, const char *propertyName, QtValue *value);
+typedef void (*WritePropertyFn)(void *context, void *object, const char *propertyName, QtValue *value);
 //typedef void (*WritePropertyFn)(void *object, const char *propertyName, QtValuePointer *valuePointer);
 
 //
@@ -38,7 +38,8 @@ typedef void (*WritePropertyFn)(void *object, const char *propertyName, QtValue 
 //
 
 // Initialize QML bindings with pointers to callback functions
-QtQmlBindings *qtCreateQmlBindings(CreateObjectFn createObjectFn, DestroyObjectFn destroyObjectFn,
+QtQmlBindings *qtCreateQmlBindings(void *context,
+                                   CreateObjectFn createObjectFn, DestroyObjectFn destroyObjectFn,
                                    ReadPropertyFn readPropertyFn, WritePropertyFn writePropertyFn);
 // Release the Qmlbindings object.
 void qtDestroyQmlBindings(QtQmlBindings *bindings);

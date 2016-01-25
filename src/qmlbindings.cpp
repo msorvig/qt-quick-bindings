@@ -24,6 +24,7 @@ struct QtClass_t
 class QmlBindingsForwardingObject;
 struct QtQmlBindings_t
 {
+    void *context;
     CreateObjectFn createObjectsFn;
     DestroyObjectFn destroyObjectFn;
     ReadPropertyFn readPropertyFn;
@@ -41,6 +42,9 @@ struct QtValue_t
 {
     QVariant variant;  // QtValue is a QVariant behind the scenes.
 };
+
+QVariant qtValueToVariant(QtValue *value);
+QtValue *qtValueFromVariant(const QVariant &variant);
 
 void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray name, QVariant value);
 
@@ -120,10 +124,14 @@ void QmlBindingsPaintedItem::paint(QPainter *painter)
     painter->fillRect(contentsBoundingRect(), QBrush(QColor(Qt::red)));
 }
 
-QtQmlBindings *qtCreateQmlBindings(CreateObjectFn createObjectFn, DestroyObjectFn destroyObjectFn,
+QtQmlBindings *qtCreateQmlBindings(void* context,
+                                   CreateObjectFn createObjectFn, DestroyObjectFn destroyObjectFn,
                                    ReadPropertyFn readPropertyFn, WritePropertyFn writePropertyFn)
 {
     QtQmlBindings *bindings = new QtQmlBindings;
+
+    // Store user context
+    bindings->context = context;
 
     // Store user function pointers.
     bindings->createObjectsFn = createObjectFn;
@@ -252,7 +260,7 @@ void qtFinalizeClass(QtQmlBindings *bindings, QtClass *klass)
 
 void *qtCreateObject(QtQmlBindings *bindings, QtClass *klass)
 {
-    return bindings->createObjectsFn(klass->metaObject->className());
+    return bindings->createObjectsFn(bindings->context, klass->metaObject->className());
 }
 
 void qtCreateQObject(QtQmlBindings *bindings, QtClass *klass, QObject **qobject, void **object)
@@ -268,12 +276,12 @@ void qtCreateQObject(QtQmlBindings *bindings, QtClass *klass, QObject **qobject,
 
 void qtDestroyObject(QtQmlBindings *bindings, void *object)
 {
-    bindings->destroyObjectFn(object);
+    bindings->destroyObjectFn(bindings->context, object);
 }
 
 QtValue *qtReadProperty(QtQmlBindings *bindings, void *object, const char *propertyName)
 {
-    return bindings->readPropertyFn(object, propertyName);
+    return bindings->readPropertyFn(bindings->context, object, propertyName);
 }
 
 void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray name, QVariant value)
@@ -321,7 +329,7 @@ void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray nam
 
 void qtWriteProperty(QtQmlBindings *bindings, void *object, const char *propertyName, QtValue *value)
 {
-    return bindings->writePropertyFn(object, propertyName, value);
+    return bindings->writePropertyFn(bindings->context, object, propertyName, value);
 }
 
 void qtPropertyChanged(QtQmlBindings *bindings, void *object, const char *propertyName)

@@ -6,23 +6,27 @@
 #include "../src/introspection_objc.h"
 #include "../src/qmlbindings.h"
 
-void *createObject(const char *className)
+void *createObject(void *context, const char *className)
 {
+    Q_UNUSED(context)
     return ObjCIntrospection::allocInit(QByteArray(className));
 }
 
-void destroyObject(void *object)
+void destroyObject(void *context, void *object)
 {
+    Q_UNUSED(context)
     ObjCIntrospection::free(object);
 }
 
-QtValue *readProperty(void *object, const char *propertyName)
+QtValue *readProperty(void *context, void *object, const char *propertyName)
 {
+    Q_UNUSED(context)
     return qtValueFromVariant(ObjCIntrospection::readProperty(object, QByteArray(propertyName)));
 }
 
-void writeProperty (void *object, const char *propertyName, QtValue *value)
+void writeProperty(void *context, void *object, const char *propertyName, QtValue *value)
 {
+    Q_UNUSED(context)
     ObjCIntrospection::writeProperty(object, QByteArray(propertyName), qtValueToVariant(value));
 }
 
@@ -32,8 +36,8 @@ void registerObjcClasses(const char *uri)
     QList<QByteArray> classNames = ObjCIntrospection::nsobjectClassNames();
     //QList<QByteArray> classNames = ObjCIntrospection::nsviewClassNames();
 
-    QtQmlBindings *qmlBindings = qtCreateQmlBindings(createObject, destroyObject,
-                                                     readProperty, writeProperty);
+    QtQmlBindings *qmlBindings = qtCreateQmlBindings(0, createObject, destroyObject,
+                                                        readProperty, writeProperty);
     qtSetBindingsObjectIdentityType(qmlBindings, "NSObject *");
     qtSetBindingsUri(qmlBindings, "ObjcBridge");
     qtSetBindingsVersion(qmlBindings, 1, 0);
