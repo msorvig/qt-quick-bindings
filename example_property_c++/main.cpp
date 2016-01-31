@@ -47,9 +47,8 @@ int main(int argc, char **argv)
 
     // Create application instances and register with Qt.
     Foo foo;
-    foo.setBar(8128);
-    qt_bindings.registerInstance(&Foo::qt_foo, "foo",  &foo);
-    // or qt::registerType(Foo::qt_foo);
+    foo.set_bar(8128);
+    qt_bindings.registerInstance(&Foo::qt_foo, &foo, "foo");
 
     return qt::main(argc, argv, "property.qml");
 }

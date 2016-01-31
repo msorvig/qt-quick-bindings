@@ -57,7 +57,9 @@ void qtSetBindingsVersion(QtQmlBindings *bindings, int majorVersion, int minorVe
 QtClass *qtCreateClass(QtQmlBindings *bindings, const char *className);
 // Make a class usable from QML. No properties can be added after qtFinalizeClass has been called.
 void qtFinalizeClass(QtQmlBindings *bindings, QtClass *klass);
-// Add a property to a class.
+// Add a property to a class. This is done by declaring that the property
+// exists. The global bindings reead/write callbaks are used to interact
+// with it.
 void qtCreateProperty(QtQmlBindings *bindings, QtClass *klass,
                       const char *propertyType, const char *propertyName);
 // Created objects have a companion Qt object which determines how the
@@ -75,16 +77,26 @@ void qtSetClassCompanionType(QtQmlBindings *bindings, QtClass *klass, QtClassCom
 // Object-level API
 //
 
-// Create an object of the given class.
+// Create an object of the given class using the registered CreateObjectFn
 void *qtCreateObject(QtQmlBindings *bindings, QtClass *klass);
-
-// Destroy an object.
+// Destroy an object using the registered DestroyObjectFn
 void qtDestroyObject(QtQmlBindings *bindings, void *object);
-// Write to a property
+// Write to a property using the registered WritePropertyFn
 void qtWriteProperty(QtQmlBindings *bindings, void *object, const char *propertyName, QtValue *value);
-// Read from a property
+// Read from a property using the registered ReadPropertyFn
 QtValue *qtReadProperty(QtQmlBindings *bindings, void *object, const char *propertyName);
-// Signal that a property has changed. Qt will call the ReadPropertyFn callback to read the new value.
+
+// Notify Qt that an object of the given QtClass has been created on the user side.
+void qtObjectCreated(QtQmlBindings *bindings, QtClass *klass, void *object);
+
+// Notify Qt that the given object has been deleted.
+void qtObjectDestroyed(QtQmlBindings *bindings, void *object);
+
+// Reggister an object instance on the QML root context.
+void qtObjectRegister(QtQmlBindings *bindings, void *object, const char *identity);
+
+// Signal that a property has changed. Qt will call the ReadPropertyFn callback
+// to read the new value.
 void qtPropertyChanged(QtQmlBindings *bindings, void *object, const char *propertyName);
 
 
@@ -121,8 +133,6 @@ QtValue *qtValueFromInt(int value);
 #if defined(__cplusplus) && defined (QT_BINDINGS_HAS_QVARIANT)
 QVariant qtValueToVariant(QtValue *value);
 QtValue *qtValueFromVariant(const QVariant &variant);
-
-void qtCreateQObject(QtQmlBindings *bindings, QtClass *klass, QObject **qobject, void **object);
 
 #endif
 

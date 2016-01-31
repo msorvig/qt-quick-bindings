@@ -11,7 +11,10 @@
 
 #include <QtQml/qqml.h>
 #include <QtQml/QQmlEngine>
+#include <QtQml/QQmlContext>
 #include <QtQuick/QQuickView>
+
+#include <vector>
 
 struct QtClass_t
 {
@@ -48,22 +51,37 @@ QtValue *qtValueFromVariant(const QVariant &variant);
 
 void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray name, QVariant value);
 
-QmlBindingsForwardingObject::QmlBindingsForwardingObject(QtClass *_qtClass)
-    :bindings(_qtClass->bindings), qtClass(_qtClass), boundObject(0)
+// The one view ### perhaps support more than one
+QQuickView *g_quickView = 0;
+
+// Storage for registered user instances which should be registered
+// with qtObjectRegister. The Registration must be delayed until
+// the Qt Quick Context is available.
+struct RegisteredInstnace {
+    QtQmlBindings *bindings;
+    void *instance;
+    const char *identifier;
+};
+std::vector<RegisteredInstnace> g_registeredInstances;
+
+//
+// Forwarding Objects
+//
+
+QmlBindingsForwardingObject::QmlBindingsForwardingObject(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject)
+    :m_bindings(bindings), m_userInstance(userInstance)
 {
-    setMetaObject(qtClass->metaObject);
-    boundObject = qtCreateObject(bindings, qtClass);
- //   bindings->objects.insert(boundObject, this);
+    setMetaObject(metaObject);
 }
 
 QVariant QmlBindingsForwardingObject::readProperty(const QByteArray &name)
 {
-    return qtValueToVariant(qtReadProperty(bindings, boundObject, name.constData()));
+    return qtValueToVariant(qtReadProperty(m_bindings, m_userInstance, name.constData()));
 }
 
 void QmlBindingsForwardingObject::wrtiteProperty(const QByteArray &name, const QVariant &value)
 {
-    qtWritePropertyFromQt(bindings, boundObject, name, value);
+    qtWritePropertyFromQt(m_bindings, m_userInstance, name, value);
 }
 
 void QmlBindingsForwardingObject::propertyChange(const QByteArray name)
@@ -71,25 +89,25 @@ void QmlBindingsForwardingObject::propertyChange(const QByteArray name)
 
 }
 
-QmlBindingsForwardingWindowController::QmlBindingsForwardingWindowController(QtClass *_qtClass)
-    :bindings(_qtClass->bindings), qtClass(_qtClass), boundObject(0)
+QmlBindingsForwardingWindowController::QmlBindingsForwardingWindowController(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject)
+    :m_bindings(bindings), m_userInstance(userInstance)
 {
-    setMetaObject(qtClass->metaObject);
-    boundObject = qtCreateObject(bindings, qtClass);
+    setMetaObject(metaObject);
 
-    // The created object is a native view which can be cased to Wid.
-    QWindow *controlledWindow = QWindow::fromWinId(WId(boundObject));
+    // The user instance is a native view which can be passed to fromWinId.
+    // (The user of this class guarantees this)
+    QWindow *controlledWindow = QWindow::fromWinId(reinterpret_cast<WId>(userInstance));
     QtWindowControllerItem::setWindow(controlledWindow);
 }
 
 QVariant QmlBindingsForwardingWindowController::readProperty(const QByteArray &name)
 {
-    return qtValueToVariant(qtReadProperty(bindings, boundObject, name.constData()));
+    return qtValueToVariant(qtReadProperty(m_bindings, m_userInstance, name.constData()));
 }
 
 void QmlBindingsForwardingWindowController::wrtiteProperty(const QByteArray &name, const QVariant &value)
 {
-    qtWritePropertyFromQt(bindings, boundObject, name, value);
+    qtWritePropertyFromQt(m_bindings, m_userInstance, name, value);
 }
 
 void QmlBindingsForwardingWindowController::propertyChange(const QByteArray name)
@@ -97,21 +115,20 @@ void QmlBindingsForwardingWindowController::propertyChange(const QByteArray name
 
 }
 
-QmlBindingsPaintedItem::QmlBindingsPaintedItem(QtClass *_qtClass)
-    :bindings(_qtClass->bindings), qtClass(_qtClass), boundObject(0)
+QmlBindingsPaintedItem::QmlBindingsPaintedItem(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject)
+    :m_bindings(bindings), m_userInstance(userInstance)
 {
-    setMetaObject(qtClass->metaObject);
-    boundObject = qtCreateObject(bindings, qtClass);
+    setMetaObject(metaObject);
 }
 
 QVariant QmlBindingsPaintedItem::readProperty(const QByteArray &name)
 {
-    return qtValueToVariant(qtReadProperty(bindings, boundObject, name.constData()));
+    return qtValueToVariant(qtReadProperty(m_bindings, m_userInstance, name.constData()));
 }
 
 void QmlBindingsPaintedItem::wrtiteProperty(const QByteArray &name, const QVariant &value)
 {
-    qtWritePropertyFromQt(bindings, boundObject, name, value);
+    qtWritePropertyFromQt(m_bindings, m_userInstance, name, value);
 }
 
 void QmlBindingsPaintedItem::propertyChange(const QByteArray name)
@@ -123,6 +140,10 @@ void QmlBindingsPaintedItem::paint(QPainter *painter)
 {
     painter->fillRect(contentsBoundingRect(), QBrush(QColor(Qt::red)));
 }
+
+//
+// QtQmlBindings
+//
 
 QtQmlBindings *qtCreateQmlBindings(void* context,
                                    CreateObjectFn createObjectFn, DestroyObjectFn destroyObjectFn,
@@ -208,15 +229,24 @@ void qtSetClassCompanionType(QtQmlBindings *bindings, QtClass *klass, QtClassCom
 
 void createQmlBindingsObject(void *memory, void *context)
 {
-    // Crate a new object. Select class according to companion object type
-    QtClass *klass = static_cast<QtClass*>(context);
-    if (klass->companionType == QtQObjectCompanion) {
-        new (memory) QmlBindingsForwardingObject(klass);
-    } else if (klass->companionType == QuickPaintedItemCompanion) {
-        new (memory) QmlBindingsPaintedItem(klass);
-    } else if (klass->companionType == QtForeginWindowCompanion) {
-        new (memory) QmlBindingsForwardingWindowController(klass);
+    QtClass *qtClass = static_cast<QtClass*>(context);
+    const QMetaObject *metaObject = qtClass->metaObject;
+    QtQmlBindings *bindings = qtClass->bindings;
+
+    // Crate a new user object.
+    void *object = qtCreateObject(bindings, qtClass);
+
+    // Select forwarding object class according to companion object type
+    if (qtClass->companionType == QtQObjectCompanion) {
+        new (memory) QmlBindingsForwardingObject(bindings, object, metaObject);
+    } else if (qtClass->companionType == QuickPaintedItemCompanion) {
+        new (memory) QmlBindingsPaintedItem(bindings, object, metaObject);
+    } else if (qtClass->companionType == QtForeginWindowCompanion) {
+        new (memory) QmlBindingsForwardingWindowController(bindings, object, metaObject);
     }
+
+    // Register the created forwarding object.
+    bindings->objects[object] = static_cast<QmlBindingsForwardingObject *>(memory);
 }
 
 void qtFinalizeClass(QtQmlBindings *bindings, QtClass *klass)
@@ -242,7 +272,7 @@ void qtFinalizeClass(QtQmlBindings *bindings, QtClass *klass)
         bindings->uri, bindings->majorVersion, bindings->minorVersion,
         klass->metaObject->className(),
 */
-    // Register class with QM. Select class C++ type according to companion object type
+    // Register class with QML. Select class C++ type according to companion object type
     if (klass->companionType == QtQObjectCompanion) {
         qmlRegisterCustomMetaObjectType<QmlBindingsForwardingObject>
             (bindings->uri, bindings->majorVersion, bindings->minorVersion,
@@ -261,17 +291,6 @@ void qtFinalizeClass(QtQmlBindings *bindings, QtClass *klass)
 void *qtCreateObject(QtQmlBindings *bindings, QtClass *klass)
 {
     return bindings->createObjectsFn(bindings->context, klass->metaObject->className());
-}
-
-void qtCreateQObject(QtQmlBindings *bindings, QtClass *klass, QObject **qobject, void **object)
-{
-    QmlBindingsForwardingObject *qobj = new QmlBindingsForwardingObject(klass);
-    *qobject = qobj;
-
-    qDebug() << "qtCreateQObject" << qobj << *qobject;
-    qDebug() << "metaobject" << qobj->metaObject();
-
-    *object = qobj->boundObject;
 }
 
 void qtDestroyObject(QtQmlBindings *bindings, void *object)
@@ -316,7 +335,7 @@ void qtWritePropertyFromQt(QtQmlBindings *bindings, void *object, QByteArray nam
             qobject_cast<QmlBindingsForwardingObject *>(object);
         if (forwardingObject) {
             // It is a QmlBindingsForwardingObject: assign the bound object pointer.
-            _value = qtValueFromVariant(QVariant::fromValue(forwardingObject->boundObject));
+            _value = qtValueFromVariant(QVariant::fromValue(forwardingObject->m_userInstance));
         }
     }
 
@@ -332,6 +351,28 @@ void qtWriteProperty(QtQmlBindings *bindings, void *object, const char *property
     return bindings->writePropertyFn(bindings->context, object, propertyName, value);
 }
 
+void qtObjectCreated(QtQmlBindings *bindings, QtClass *klass, void *instance)
+{
+    bindings->objects[instance] = new QmlBindingsForwardingObject(bindings, instance, klass->metaObject);
+}
+
+void qtObjectDestroyed(QtQmlBindings *bindings, QtClass *klass, void *instance)
+{
+    // ### clear g_quickView context property?
+    delete bindings->objects[instance];
+    bindings->objects[instance] = 0;
+}
+
+void qtObjectRegister(QtQmlBindings *bindings, void *instance, const char *identity)
+{
+    // Delay registration if the global Qt Quick View has not been created yet.
+    if (!g_quickView) {
+        g_registeredInstances.emplace_back(RegisteredInstnace {bindings, instance, identity});
+    } else {
+        g_quickView->rootContext()->setContextProperty(identity, bindings->objects[instance]);
+    }
+}
+
 void qtPropertyChanged(QtQmlBindings *bindings, void *object, const char *propertyName)
 {
     QmlBindingsForwardingObject *forwardingObject = bindings->objects.value(object);
@@ -345,10 +386,19 @@ void qtPropertyChanged(QtQmlBindings *bindings, void *object, const char *proper
 int qtMain(int argc, char**argv, const char *mainQmlFilePath)
 {
     QGuiApplication app(argc, argv);
-    QQuickView quickView;
-    QObject::connect(quickView.engine(), SIGNAL(quit()), &quickView, SLOT(close()));
-    quickView.setSource(QUrl::fromLocalFile(QString::fromUtf8(mainQmlFilePath)));
-    quickView.show();
+
+    // Set up the (global) QQuickView
+    g_quickView = new QQuickView();
+    QObject::connect(g_quickView->engine(), SIGNAL(quit()), g_quickView, SLOT(close()));
+    g_quickView->setSource(QUrl::fromLocalFile(QString::fromUtf8(mainQmlFilePath)));
+
+    // Register delay-registered objects
+    for (const auto &it : g_registeredInstances) {
+        QmlBindingsForwardingObject *object = it.bindings->objects[it.instance];
+        g_quickView->rootContext()->setContextProperty(it.identifier, object);
+    }
+
+    g_quickView->show();
     return app.exec();
 }
 

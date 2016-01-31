@@ -9,6 +9,7 @@ HEADERS += \
 SOURCES += \
     $$PWD/forwardingmetaobject.cpp \
     $$PWD/qtwindowcontrolleritem.cpp \
-    $$PWD/qmlbindings.cpp
+    $$PWD/qmlbindings.cpp \
+    $$PWD/qtquick.cpp
 
 QT += core-private qml quick

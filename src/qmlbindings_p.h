@@ -15,43 +15,40 @@ class QmlBindingsForwardingObject : public SimpleForwardObjectT<QObject>
 {
 Q_OBJECT
 public:
-    QmlBindingsForwardingObject(QtClass *_qtClass);
+    QmlBindingsForwardingObject(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject);
     QVariant readProperty(const QByteArray &name);
     void wrtiteProperty(const QByteArray &name, const QVariant &valueVariant);
     void propertyChange(const QByteArray name);
 
-    QtQmlBindings *bindings;
-    QtClass *qtClass;
-    void *boundObject;
+    QtQmlBindings *m_bindings;
+    void *m_userInstance;
 };
 
 class QmlBindingsPaintedItem : public SimpleForwardObjectT<QQuickPaintedItem>
 {
 Q_OBJECT
 public:
-    QmlBindingsPaintedItem(QtClass *_qtClass);
+    QmlBindingsPaintedItem(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject);
     QVariant readProperty(const QByteArray &name);
     void wrtiteProperty(const QByteArray &name, const QVariant &valueVariant);
     void propertyChange(const QByteArray name);
     void paint(QPainter *painter);
 
-    QtQmlBindings *bindings;
-    QtClass *qtClass;
-    void *boundObject;
+    QtQmlBindings *m_bindings;
+    void *m_userInstance;
 };
 
 class QmlBindingsForwardingWindowController : public SimpleForwardObjectT<QtWindowControllerItem>
 {
 Q_OBJECT
 public:
-    QmlBindingsForwardingWindowController(QtClass *_qtClass);
+    QmlBindingsForwardingWindowController(QtQmlBindings *bindings, void *userInstance, const QMetaObject *metaObject);
     QVariant readProperty(const QByteArray &name);
     void wrtiteProperty(const QByteArray &name, const QVariant &valueVariant);
     void propertyChange(const QByteArray name);
 
-    QtQmlBindings *bindings;
-    QtClass *qtClass;
-    void *boundObject;
+    QtQmlBindings *m_bindings;
+    void *m_userInstance;
 };
 
 
